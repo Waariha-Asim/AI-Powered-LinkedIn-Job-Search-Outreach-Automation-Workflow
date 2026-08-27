@@ -1,1 +1,1110 @@
-
+{
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/actor-tasks/waariha_asim~karachi-ai-jobs/runs?token=YOUR_APIFY_TOKEN&waitForFinish=120",
+        "options": {}
+      },
+      "id": "b81c6577-7962-4944-9fb3-87fb2288f868",
+      "name": "Apify - Karachi Jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -13440,
+        2528
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/actor-tasks/waariha_asim~remote-pak-ai-jobs/runs?token=YOUR_APIFY_TOKEN&waitForFinish=120",
+        "options": {}
+      },
+      "id": "674f6dcb-ed51-4b13-b4d9-68c65ec901ab",
+      "name": "Apify - Remote Pakistan Jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -13392,
+        2304
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.apify.com/v2/actor-tasks/waariha_asim~karachi-ai-jobs/runs/last/dataset/items?token=YOUR_APIFY_TOKEN&clean=true",
+        "options": {}
+      },
+      "id": "44ab8d68-26fb-421a-9334-8f75a2cdbf84",
+      "name": "Get Karachi Results2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -13152,
+        2528
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.apify.com/v2/actor-tasks/waariha_asim~remote-pak-ai-jobs/runs/last/dataset/items?token=YOUR_APIFY_TOKEN&clean=true",
+        "options": {}
+      },
+      "id": "dcc6532c-bec3-4ed0-8340-0d7389a33087",
+      "name": "Get Remote Results2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -13152,
+        2304
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "3cda7aad-4154-4ba3-8363-db331af0d2d3",
+      "name": "Merge All Posts2",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        -12896,
+        2416
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst seen = new Set();\nconst unique = [];\n\nfor (const item of items) {\n  const data = Array.isArray(item.json) ? item.json : [item.json];\n  for (const post of data) {\n    if (!post) continue;\n    const textKey = (post.text || post.content?.text || '').substring(0, 120).trim().toLowerCase();\n    const id = textKey || post.activity_id || post.full_urn || JSON.stringify(post).substring(0, 80);\n    if (!seen.has(id)) {\n      seen.add(id);\n      unique.push({ json: post });\n    }\n  }\n}\n\nreturn unique.length > 0 ? unique : [{ json: { error: 'no posts after dedup' } }];"
+      },
+      "id": "a5ef2b95-a750-4d57-bcd5-221dafca20d6",
+      "name": "Deduplicate Posts2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -12672,
+        2416
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const d = item.json;\n  if (!d || d.error) continue;\n\n  const postText = d.text || d.content?.text || d.commentary || '';\n  const url = d.post_url || d.postUrl || d.url || '';\n  const author = d.author?.name || d.authorName || 'Unknown';\n  const postedAt = d.posted_at?.date || d.postedAt || 'Unknown';\n  const activityId = d.activity_id || d.full_urn || url || postText.substring(0, 60);\n\n  if (postText.length < 30) continue;\n\n  results.push({ json: { postText, url, author, postedAt, activityId } });\n}\n\nreturn results.length > 0 ? results : [{ json: { error: 'no valid posts' } }];"
+      },
+      "id": "3c4cdd14-1f31-451a-8524-54f268b8e767",
+      "name": "Prepare Posts for LLM2",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -12464,
+        2416
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "c4197192-8205-4303-8ffb-27bffffc3263",
+      "name": "Loop Over Posts2",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -12224,
+        2416
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "cd2dc7cf-c2bb-4dcc-adf1-27144cde764c",
+      "name": "Wait 3 Seconds2",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -11952,
+        2432
+      ],
+      "webhookId": "371b99de-3af9-4e26-8a1e-ba85a65d0d54"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GROQ_API_KEY"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{\n{\n  model: \"openai/gpt-oss-20b\",\n  temperature: 0,\n  max_tokens: 400,\n  messages: [\n    {\n      role: \"system\",\n      content: `You are a job-post filter for a junior AI Engineer based in Karachi, Pakistan.\n\nReturn ONLY one valid JSON object. No markdown, code fences, or explanation.\n\nAccept as relevant if:\n- The role or post includes AI, AI Engineer, AI/ML, Machine Learning, Generative AI, GenAI, LLM, NLP, RAG, AI Agents, AI Automation, n8n, Python AI, FastAPI, Chatbot, Prompt Engineering, Computer Vision, Data Science, or Artificial Intelligence.\n- Location is Karachi, Remote Pakistan, Pakistan remote, worldwide remote, or unspecified.\n- Experience is 0 years, fresh graduate, internship, entry-level, junior, 0-1, 1-2, 2-3, up to 3 years, or unspecified.\n- Accept \"3+ years\" only for a junior/early-career role when no 4+, 5+, 6+, senior, lead, principal, staff, manager, or architect requirement exists.\n\nReject if:\n- The role is non-AI.\n- Experience clearly requires more than 3 years.\n- It requires 4+, 5+, 6+, 7+, or 8+ years.\n- The role is Senior, Lead, Principal, Staff, Architect, Manager, or similar.\n- It is onsite in Lahore, Islamabad, Rawalpindi, or another non-Karachi city.\n- It is US-only or cannot be done from Pakistan.\n\nDo not reject because the post has or does not have an email, is posted by a jobs page, has extra hashtags, or has an unclear company name.\n\nExtract all fields from the post. Use \"Unknown\" for missing text fields and null for missing email or links.\n\nReturn exactly this object:\n{\n  \"is_relevant\": true,\n  \"reason\": \"short reason\",\n  \"company\": \"company name or Unknown\",\n  \"role\": \"exact role title or Unknown\",\n  \"experience_required\": \"experience requirement or Unknown\",\n  \"location\": \"location or Unknown\",\n  \"has_email\": false,\n  \"contact_email\": null,\n  \"has_apply_link\": false,\n  \"apply_link\": null,\n  \"author_name\": \"author name or Unknown\",\n  \"match_score\": 8\n}\n\nBoolean values must be true or false.`\n    },\n    {\n      role: \"user\",\n      content: \"Post: \" + $json.postText + \"\\nAuthor: \" + $json.author\n    }\n  ]\n}\n}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "275113ae-e0b4-4c2a-9b51-b502fccef1e7",
+      "name": "Groq - FILTER ONLY1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -11696,
+        2432
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst originalPost = $('Loop Over Posts2').item.json;\n\nconst raw =\n  item?.choices?.[0]?.message?.content ||\n  item?.content ||\n  '';\n\ntry {\n  const clean = String(raw)\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .trim();\n\n  const parsed = JSON.parse(clean);\n\n  return [{\n    json: {\n      ...originalPost,\n      ...parsed,\n      parse_ok: true\n    }\n  }];\n} catch (error) {\n  return [{\n    json: {\n      ...originalPost,\n      is_relevant: false,\n      parse_ok: false,\n      raw_groq_response: raw,\n      error: `Groq parse error: ${error.message}`\n    }\n  }];\n}"
+      },
+      "id": "27a435ae-e2c2-4d51-a9ef-85bf084887f8",
+      "name": "Parse Filter Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -11488,
+        2432
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_relevant }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "b00c298b-68a4-4862-bceb-d461c6af286f",
+      "name": "Is Relevant?2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -11264,
+        2432
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "options": {}
+      },
+      "id": "6d69ed2c-0ccc-41cf-bcd8-c7420369c6cd",
+      "name": "Read Existing Sheet1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -11008,
+        2416
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIALS_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const current = $('Parse Filter Response1').item.json;\nconst rows = $('Read Existing Sheet1').all();\n\nfunction normalize(value) {\n  return String(value ?? '')\n    .trim()\n    .toLowerCase()\n    .replace(/[^a-z0-9]+/g, '');\n}\n\nconst currentCompany = normalize(current.company);\n\nconst alreadyProcessed = rows.some((row) => {\n  const data = row.json || {};\n  const sheetCompany = normalize(data.Company);\n\n  const emailStatus = String(data['Email Status'] ?? '')\n    .trim()\n    .toLowerCase();\n\n  const dmStatus = String(data['DM Status'] ?? '')\n    .trim()\n    .toLowerCase();\n\n  return (\n    currentCompany &&\n    sheetCompany === currentCompany &&\n    (\n      emailStatus === 'email draft ready' ||\n      dmStatus === 'dm draft ready'\n    )\n  );\n});\n\nreturn [{\n  json: {\n    ...current,\n    skip: alreadyProcessed\n  }\n}];"
+      },
+      "id": "c65e0167-ae64-4cd0-ae2a-0f44fa420cf6",
+      "name": "Check Already Processed1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -10720,
+        2416
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          }
+        },
+        "options": {}
+      },
+      "id": "1db96e5b-5867-4974-af6a-a4f071dbb0b3",
+      "name": "Skip If Already Done1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -10448,
+        2080
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "888c78bd-e6ef-42af-b12c-982d8ec1cb4a",
+      "name": "Wait 2 Seconds (before draft)1",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -10368,
+        2416
+      ],
+      "webhookId": "wait-draft-webhook-001"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=YOUR_GEMINI_API_KEY",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "=application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  contents: [\n    {\n      parts: [\n        {\n          text: `You are a professional job-application writer for Waariha Asim Sheikh.\n\nThe job has already been filtered as relevant. Do not re-evaluate it.\n\nJOB DETAILS:\nCompany: ${$json.company || 'Unknown'}\nRole: ${$json.role || 'Unknown'}\nLocation: ${$json.location || 'Unknown'}\nExperience: ${$json.experience_required || 'Unknown'}\nContact email: ${$json.contact_email || ''}\nRecruiter/author: ${$json.author_name || $json.author || ''}\nPost URL: ${$json.url || $json.post_url || ''}\n\nCANDIDATE:\nName: Waariha Asim Sheikh\nRole: Junior AI Engineer\nLocation: Karachi, Pakistan\nEmail: warihaasim@gmail.com\nPhone: +92 347 2583417\nLinkedIn: https://linkedin.com/in/waarihaasim\nGitHub: https://github.com/Waariha-Asim\n\nEXPERIENCE:\n- AI Engineer at LA Consulting Corporation, building AI applications, LLM integrations, APIs, RAG systems and AI automations.\n- AI Intern at LA Consulting Corporation, built 10+ n8n AI automation workflows.\n- NLP Intern at Ellevo Pathways, worked on NLP and QA systems using DistilBERT and RoBERTa.\n\nSKILLS:\nPython, LLMs, Generative AI, RAG, AI Agents, n8n, LangChain, FAISS, Qdrant, Gemini, Groq, OpenAI, Hugging Face, PyTorch, FastAPI, REST APIs, JavaScript, TypeScript, React.js, Node.js, MongoDB, Git and Docker.\n\nPROJECTS:\n- GlotSpeak: AI language platform using React, TypeScript, Node.js, MongoDB and Gemini/Groq APIs.\nURL: https://www.glotspeak.com\n\n- RAG Document Assistant: document QA system using LangChain, FAISS and Groq.\nURL: https://github.com/Waariha-Asim/RAG-Chat-Assistant-App\n\n- AI RAG Customer Support: n8n and Qdrant customer-support automation using Gemini/Groq, Gmail and Google Drive.\nURL: https://github.com/Waariha-Asim/AI-Powered-RAG-Customer-Support-System\n\n- DualAgent AI: multi-agent LLM system using LangChain and Groq.\nURL: https://github.com/Waariha-Asim/DualAgent-AI\n\n- n8n AI Workflows: 10+ AI automation workflows using Gemini and Google Workspace APIs.\nURL: https://github.com/Waariha-Asim/n8n-AI-Workflows\n\nDRAFT RULES:\n\nIf Contact email contains a real email address:\n- Generate one complete personalized application email.\n- Write 150 to 180 words maximum.\n- Start with \"Hi [real author name],\" when a real author name is available.\n- Otherwise start with \"Hi Hiring Team,\".\n- Mention the exact job title.\n- Mention 2 or 3 relevant skills.\n- Mention relevant candidate experience naturally.\n- Mention only 2 relevant projects with their actual URLs.\n- Include exactly: \"Please find my resume attached.\"\n- End with this signature:\n\nBest regards,\nWaariha Asim Sheikh\nAI Engineer\nKarachi, Pakistan\nwarihaasim@gmail.com\nhttps://linkedin.com/in/waarihaasim\nhttps://github.com/Waariha-Asim\n\n- Set dm_draft to null.\n- Never generate a DM when a contact email exists.\n\nIf Contact email is empty:\n- Set email_draft to null.\n- Generate one LinkedIn DM under 80 words.\n- Mention the exact role.\n- Mention 1 relevant skill or project with its actual URL.\n- Include warihaasim@gmail.com.\n- End with exactly: \"Let's connect!\"\n\nDo not use:\nthrilled, passionate, esteemed, cutting-edge, perfect candidate, valuable asset.\n\nDo not invent facts, experience, metrics or responsibilities.\nDo not repeat the complete job description.\n\nOUTPUT REQUIREMENTS:\n- Return only one JSON object.\n- Return exactly two keys: email_draft and dm_draft.\n- Do not return markdown, code fences or explanations.\n- If Contact email exists, email_draft must contain the email and dm_draft must be null.\n- If Contact email is empty, email_draft must be null and dm_draft must contain the DM.\n- Never put unescaped real line breaks inside JSON string values.\n- Use escaped newline characters inside draft strings.\n- Complete the entire JSON object before stopping.\n- Never truncate the response.\n\nReturn exactly:\n{\n  \"email_draft\": \"complete email text or null\",\n  \"dm_draft\": \"complete DM text or null\"\n}\n\nLINKEDIN POST:\n${$json.postText || ''}`\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: 0.2,\n    maxOutputTokens: 4000,\n    responseMimeType: \"application/json\"\n  }\n}\n}}",
+        "options": {}
+      },
+      "id": "b1d77582-8ef2-492f-a387-d4eec45f193d",
+      "name": "Gemini - Draft Writer1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -10144,
+        2416
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst filtered = $('Parse Filter Response1').item.json;\n\nconst raw =\n  item?.candidates?.[0]?.content?.parts?.[0]?.text ||\n  item?.choices?.[0]?.message?.content ||\n  '';\n\nfunction valid(value) {\n  if (value === null || value === undefined) return false;\n\n  const text = String(value).trim().toLowerCase();\n\n  return (\n    text !== '' &&\n    text !== 'unknown' &&\n    text !== 'not specified' &&\n    text !== 'undefined' &&\n    text !== 'null'\n  );\n}\n\nfunction firstValid(...values) {\n  return values.find(valid) ?? 'Unknown';\n}\n\nfunction repairJson(value) {\n  let result = '';\n  let insideString = false;\n  let escaped = false;\n\n  for (const character of String(value)) {\n    if (escaped) {\n      result += character;\n      escaped = false;\n      continue;\n    }\n\n    if (character === '\\\\' && insideString) {\n      result += character;\n      escaped = true;\n      continue;\n    }\n\n    if (character === '\"') {\n      insideString = !insideString;\n      result += character;\n      continue;\n    }\n\n    if (insideString && character === '\\n') {\n      result += '\\\\n';\n    } else if (insideString && character === '\\r') {\n      result += '\\\\r';\n    } else if (insideString && character === '\\t') {\n      result += '\\\\t';\n    } else {\n      result += character;\n    }\n  }\n\n  return result;\n}\n\nconst baseData = {\n  postText: filtered.postText,\n  url: filtered.url || filtered.post_url || null,\n  postedAt: filtered.postedAt || filtered.posted_date || null,\n  activityId: filtered.activityId || filtered.activity_id || null,\n  author: filtered.author || null\n};\n\nif (!raw) {\n  return [{\n    json: {\n      ...baseData,\n      ...filtered,\n      company: firstValid(filtered.company),\n      role: firstValid(filtered.role),\n      location: firstValid(filtered.location),\n      experience_required: firstValid(filtered.experience_required),\n      author_name: firstValid(filtered.author_name, filtered.author),\n      email_draft: null,\n      dm_draft: null,\n      parse_ok: false,\n      error: 'Gemini returned empty response'\n    }\n  }];\n}\n\ntry {\n  const clean = String(raw)\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/\\s*```$/i, '')\n    .trim();\n\n  const parsed = JSON.parse(repairJson(clean));\n\n  const contactEmail = valid(filtered.contact_email)\n    ? filtered.contact_email\n    : valid(parsed.contact_email)\n      ? parsed.contact_email\n      : null;\n\n  return [{\n    json: {\n      ...baseData,\n\n      // Trusted job fields: never allow Gemini placeholders to overwrite them\n      company: firstValid(filtered.company, parsed.company),\n      role: firstValid(filtered.role, parsed.role),\n      location: firstValid(filtered.location, parsed.location),\n      experience_required: firstValid(\n        filtered.experience_required,\n        parsed.experience_required\n      ),\n      match_score: filtered.match_score ?? parsed.match_score ?? 0,\n\n      // Trusted contact and author fields\n      has_email: Boolean(contactEmail),\n      contact_email: contactEmail,\n      has_apply_link: Boolean(\n        valid(filtered.apply_link) || valid(parsed.apply_link)\n      ),\n      apply_link: valid(filtered.apply_link)\n        ? filtered.apply_link\n        : valid(parsed.apply_link)\n          ? parsed.apply_link\n          : null,\n      author_name: firstValid(\n        filtered.author_name,\n        filtered.author,\n        parsed.author_name\n      ),\n\n      post_url: baseData.url,\n      posted_date: baseData.postedAt,\n\n      // Only drafts come from Gemini\n      email_draft: valid(parsed.email_draft)\n        ? parsed.email_draft\n        : null,\n      dm_draft: valid(parsed.dm_draft)\n        ? parsed.dm_draft\n        : null,\n\n      parse_ok: true\n    }\n  }];\n} catch (error) {\n  return [{\n    json: {\n      ...baseData,\n      ...filtered,\n      company: firstValid(filtered.company),\n      role: firstValid(filtered.role),\n      location: firstValid(filtered.location),\n      experience_required: firstValid(filtered.experience_required),\n      author_name: firstValid(filtered.author_name, filtered.author),\n      email_draft: null,\n      dm_draft: null,\n      parse_ok: false,\n      error: `Gemini parse error: ${error.message}`,\n      raw_gemini_response: raw\n    }\n  }];\n}"
+      },
+      "id": "e45780a0-9b90-4733-9d70-901f76f1ac6f",
+      "name": "Parse Draft Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -9920,
+        2416
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.has_email }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "id": "ed41a7b7-e0a4-4097-bfe5-c64b6e764ee4"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d4fbdb52-c659-4a78-b4ca-6554c7c72da5",
+      "name": "Has Email?2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -9712,
+        2416
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "=Application for {{ $json.role }} - {{ $json.company }} | Waariha Asim Sheikh",
+        "message": "={{ $json.email_draft }}",
+        "options": {
+          "sendTo": "={{ $json.contact_email }}"
+        }
+      },
+      "id": "78ec5ce9-a165-4cb7-98ec-30113361787a",
+      "name": "Create Gmail Draft3",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        -9024,
+        2416
+      ],
+      "webhookId": "bb2c6cfe-7d8d-4121-846f-d35dbd76a829",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_GMAIL_CREDENTIALS_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $json.postedAt || $json.posted_date || new Date().toLocaleDateString('en-PK') }}",
+            "Company": "={{ $json.company || 'Unknown' }}",
+            "Role": "={{ $json.role || 'Unknown' }}",
+            "Location": "={{ $json.location || 'Unknown' }}",
+            "Experience": "={{ $json.experience_required || 'Unknown' }}",
+            "Match Score": "={{ $json.match_score || '' }}",
+            "Type": "Email",
+            "Contact Email": "={{ $json.contact_email || '' }}",
+            "Author Name": "={{ $json.author_name || $json.author || 'Unknown' }}",
+            "Post URL": "={{ $json.url || $json.post_url || '-' }}",
+            "Apply Link": "={{ $json.apply_link || '-' }}",
+            "Email Draft": "={{ $json.email_draft || '' }}",
+            "DM Draft": "-",
+            "Email Status": "={{ $json.email_draft ? 'Email Draft Ready' : 'Email Draft Failed' }}",
+            "DM Status": "-"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Role",
+              "displayName": "Role",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Experience",
+              "displayName": "Experience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Match Score",
+              "displayName": "Match Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Contact Email",
+              "displayName": "Contact Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Author Name",
+              "displayName": "Author Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post URL",
+              "displayName": "Post URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Apply Link",
+              "displayName": "Apply Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email Draft",
+              "displayName": "Email Draft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DM Draft",
+              "displayName": "DM Draft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email Status",
+              "displayName": "Email Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DM Status",
+              "displayName": "DM Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "26627a01-6fa6-4872-90d2-73571762b9e8",
+      "name": "Log to Sheet Email",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -9200,
+        2192
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIALS_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "list"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Date": "={{ $json.postedAt || $json.posted_date || new Date().toLocaleDateString('en-PK') }}",
+            "Company": "={{ $json.company || 'Unknown' }}",
+            "Role": "={{ $json.role || 'Unknown' }}",
+            "Location": "={{ $json.location || 'Unknown' }}",
+            "Experience": "={{ $json.experience_required || 'Unknown' }}",
+            "Match Score": "={{ $json.match_score || '' }}",
+            "Type": "DM",
+            "Contact Email": "-",
+            "Author Name": "={{ $json.author_name || $json.author || 'Unknown' }}",
+            "Post URL": "={{ $json.url || $json.post_url || '-' }}",
+            "Apply Link": "={{ $json.apply_link || '-' }}",
+            "Email Draft": "-",
+            "DM Draft": "={{ $json.dm_draft || '' }}",
+            "Email Status": "-",
+            "DM Status": "={{ $json.dm_draft ? 'DM Draft Ready' : 'DM Draft Failed' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Date",
+              "displayName": "Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Company",
+              "displayName": "Company",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Role",
+              "displayName": "Role",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Experience",
+              "displayName": "Experience",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Match Score",
+              "displayName": "Match Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Type",
+              "displayName": "Type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Contact Email",
+              "displayName": "Contact Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Author Name",
+              "displayName": "Author Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post URL",
+              "displayName": "Post URL",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Apply Link",
+              "displayName": "Apply Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email Draft",
+              "displayName": "Email Draft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DM Draft",
+              "displayName": "DM Draft",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email Status",
+              "displayName": "Email Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "DM Status",
+              "displayName": "DM Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "138622e6-f24b-4a1b-8bbb-d53326ba08ba",
+      "name": "Log to Sheet DM",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.4,
+      "position": [
+        -9200,
+        2544
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIALS_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 23 * * *"
+            }
+          ]
+        }
+      },
+      "id": "28c6b5c5-548e-4c9e-a569-0748fff428c5",
+      "name": "Schedule Trigger (11pm daily)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -13712,
+        2400
+      ]
+    }
+  ],
+  "connections": {
+    "Apify - Karachi Jobs": {
+      "main": [
+        [
+          {
+            "node": "Get Karachi Results2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Apify - Remote Pakistan Jobs": {
+      "main": [
+        [
+          {
+            "node": "Get Remote Results2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Karachi Results2": {
+      "main": [
+        [
+          {
+            "node": "Merge All Posts2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Get Remote Results2": {
+      "main": [
+        [
+          {
+            "node": "Merge All Posts2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge All Posts2": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate Posts2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deduplicate Posts2": {
+      "main": [
+        [
+          {
+            "node": "Prepare Posts for LLM2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Posts for LLM2": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Posts2": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait 3 Seconds2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 3 Seconds2": {
+      "main": [
+        [
+          {
+            "node": "Groq - FILTER ONLY1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq - FILTER ONLY1": {
+      "main": [
+        [
+          {
+            "node": "Parse Filter Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Filter Response1": {
+      "main": [
+        [
+          {
+            "node": "Is Relevant?2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Relevant?2": {
+      "main": [
+        [
+          {
+            "node": "Read Existing Sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Posts2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Existing Sheet1": {
+      "main": [
+        [
+          {
+            "node": "Check Already Processed1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Already Processed1": {
+      "main": [
+        [
+          {
+            "node": "Skip If Already Done1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip If Already Done1": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 2 Seconds (before draft)1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 2 Seconds (before draft)1": {
+      "main": [
+        [
+          {
+            "node": "Gemini - Draft Writer1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini - Draft Writer1": {
+      "main": [
+        [
+          {
+            "node": "Parse Draft Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Draft Response1": {
+      "main": [
+        [
+          {
+            "node": "Has Email?2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Email?2": {
+      "main": [
+        [
+          {
+            "node": "Create Gmail Draft3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to Sheet Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log to Sheet DM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Gmail Draft3": {
+      "main": [
+        []
+      ]
+    },
+    "Log to Sheet Email": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log to Sheet DM": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Posts2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger (11pm daily)": {
+      "main": [
+        [
+          {
+            "node": "Apify - Remote Pakistan Jobs",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Apify - Karachi Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": ""
+  }
+}
