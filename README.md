@@ -6,7 +6,7 @@ An end-to-end **human-in-the-loop AI automation** that discovers LinkedIn job po
 
 ## 📸 Workflow Overview
 
-![n8n Workflow for LinkedIn AI Job Hunter](https://github.com/Waariha-Asim/AI-Powered-LinkedIn-Job-Search-Outreach-Automation-Workflow/blob/main/Screenshot%202026-08-27%20071154.png)
+![n8n Workflow for LinkedIn AI Job Hunter](https://github.com/Waariha-Asim/AI-Powered-LinkedIn-Job-Search-Outreach-Automation-Workflow/blob/main/workflow_output.png)
 
 *Complete 25+ node n8n automation workflow.*
 
